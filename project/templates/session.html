@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Screen Share Session</title>
+</head>
+
+<body>
+
+<h2>Student Screen Sharing</h2>
+
+<button id="shareBtn">Share Screen</button>
+<br><br>
+
+<video id="preview" autoplay playsinline muted width="600"></video>
+
+<p>{{admin_id}}</p>
+<script>
+let stream = null;
+let peerConnection = null;
+
+/* -------------------------
+   WebSocket connection
+--------------------------*/
+const socket = new WebSocket(
+    "ws://" + window.location.host +
+    "/ws/session/{{ admin_id }}/"
+);
+socket.onopen = () => console.log("Student socket connected");
+socket.onerror = e => console.log("Socket error:", e);
+let pendingCandidates = [];
+
+socket.onmessage = async e => {
+    const data = JSON.parse(e.data);
+
+    if (data.type === "answer") {
+        console.log("Answer received");
+
+        await peerConnection.setRemoteDescription(
+            new RTCSessionDescription(data.answer)
+        );
+
+        // Apply queued candidates
+        for (const c of pendingCandidates) {
+            await peerConnection.addIceCandidate(c);
+        }
+
+        pendingCandidates = [];
+    }
+
+    if (data.type === "candidate") {
+        const candidate = new RTCIceCandidate(data.candidate);
+
+        if (peerConnection.remoteDescription) {
+            await peerConnection.addIceCandidate(candidate);
+        } else {
+            pendingCandidates.push(candidate);
+        }
+    }
+};
+
+
+
+/* -------------------------
+   Screen Share Button
+--------------------------*/
+document.getElementById("shareBtn").onclick = async () => {
+    try {
+        stream = await navigator.mediaDevices.getDisplayMedia({
+            video: true,
+            audio: false
+        });
+
+        const video = document.getElementById("preview");
+        video.srcObject = stream;
+        await video.play();
+
+        console.log("Screen sharing started");
+
+        peerConnection = new RTCPeerConnection();
+
+        /* ICE candidates */
+        peerConnection.onicecandidate = event => {
+            if (event.candidate) {
+                socket.send(JSON.stringify({
+                    type: "candidate",
+                    candidate: event.candidate
+                }));
+            }
+        };
+
+        /* Send tracks */
+        stream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, stream);
+        });
+
+        /* Stop sharing */
+        stream.getVideoTracks()[0].onended = () => {
+            fetch("/end-session/{{ session.id }}/");
+        };
+
+        console.log("Creating offer");
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+
+        console.log("Sending offer");
+
+        socket.send(JSON.stringify({
+            type: "offer",
+            offer: offer
+        }));
+console.log(event.streams);
+
+    } catch (err) {
+        console.log("User cancelled sharing");
+    }
+};
+
+
+/* -------------------------
+   Tab Close Handling
+--------------------------*/
+window.addEventListener("beforeunload", function () {
+    navigator.sendBeacon("/end-session/{{ session.id }}/");
+});
+</script>
+
+</body>
+</html>

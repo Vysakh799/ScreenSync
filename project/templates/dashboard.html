@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+</head>
+
+<body>
+
+<h1>Welcome to dashboard</h1>
+<h2>Code: {{ code }}</h2>
+
+<div id="sessionContainer">
+
+{% for i in sessions %}
+<div id="session-{{ i.id }}">
+    <p>{{ i.student_name }}</p>
+    <video autoplay playsinline muted width="300"></video>
+
+    <button onclick="endSession({{ i.id }})">
+        End Session
+    </button>
+</div>
+{% endfor %}
+
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+/* ---------------------------
+   End session button
+----------------------------*/
+window.endSession = function(id) {
+    fetch(`/end-session/${id}/`, {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}"
+        }
+    }).then(() => location.reload());
+};
+
+
+/* ---------------------------
+   WebSocket connection
+----------------------------*/
+const socket = new WebSocket(
+    "ws://" + window.location.host +
+    "/ws/session/{{ request.user.id }}/"
+);
+
+socket.onopen = () => console.log("WebSocket Connected");
+socket.onerror = e => console.log("Socket error", e);
+
+
+/* ---------------------------
+   Peer connection
+----------------------------*/
+const peerConnection = new RTCPeerConnection();
+
+/* ICE candidates */
+peerConnection.onicecandidate = event => {
+    if (event.candidate) {
+        socket.send(JSON.stringify({
+            type: "candidate",
+            candidate: event.candidate
+        }));
+    }
+};
+
+
+/* ---------------------------
+   Receive video stream
+----------------------------*/
+peerConnection.ontrack = async event => {
+    console.log("Stream received");
+    console.log(event.streams);
+    const container = document.getElementById("sessionContainer");
+
+    let sessionBox = document.querySelector(".live-session");
+
+    if (!sessionBox) {
+        console.log("Creating live session UI");
+
+        sessionBox = document.createElement("div");
+        sessionBox.className = "live-session";
+
+        const title = document.createElement("p");
+        title.innerText = "Live Student";
+
+        const video = document.createElement("video");
+        video.autoplay = true;
+        video.playsInline = true;
+        video.muted = true;
+
+        video.style.width = "400px";
+        video.style.height = "250px";
+        video.style.background = "black";
+        video.controls = true;
+
+
+        sessionBox.appendChild(title);
+        sessionBox.appendChild(video);
+
+        container.appendChild(sessionBox);
+    }
+
+    const video = sessionBox.querySelector("video");
+
+    video.srcObject = event.streams[0];
+
+    try {
+        await video.play();
+    } catch (err) {
+        console.log("Play blocked:", err);
+    }
+};
+
+
+/* ---------------------------
+   Signaling messages
+----------------------------*/
+socket.onmessage = async e => {
+    const data = JSON.parse(e.data);
+
+    if (data.type === "offer") {
+        console.log("Offer received");
+
+        await peerConnection.setRemoteDescription(
+            new RTCSessionDescription(data.offer)
+        );
+
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        socket.send(JSON.stringify({
+            type: "answer",
+            answer: answer
+        }));
+    }
+
+    if (data.type === "candidate") {
+        console.log("Candidate received");
+
+        await peerConnection.addIceCandidate(
+            new RTCIceCandidate(data.candidate)
+        );
+    }
+};
+
+});
+</script>
+
+</body>
+</html>
