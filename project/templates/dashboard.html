@@ -17,7 +17,8 @@
 {% for i in sessions %}
 <div id="session-{{ i.id }}">
     <p>{{ i.student_name }}</p>
-    <video autoplay playsinline muted width="300"></video>
+    <video id="video-{{ i.id }}"
+           autoplay playsinline muted width="300"></video>
 
     <button onclick="endSession({{ i.id }})">
         End Session
@@ -31,7 +32,7 @@
 document.addEventListener("DOMContentLoaded", () => {
 
 /* ---------------------------
-   End session button
+   End session manually
 ----------------------------*/
 window.endSession = function(id) {
     fetch(`/end-session/${id}/`, {
@@ -39,15 +40,18 @@ window.endSession = function(id) {
         headers: {
             "X-CSRFToken": "{{ csrf_token }}"
         }
-    }).then(() => location.reload());
+    });
 };
 
 
 /* ---------------------------
    WebSocket connection
 ----------------------------*/
+const protocol =
+    window.location.protocol === "https:" ? "wss://" : "ws://";
+
 const socket = new WebSocket(
-    "ws://" + window.location.host +
+    protocol + window.location.host +
     "/ws/session/{{ request.user.id }}/"
 );
 
@@ -56,97 +60,126 @@ socket.onerror = e => console.log("Socket error", e);
 
 
 /* ---------------------------
-   Peer connection
+   Peer map
 ----------------------------*/
-const peerConnection = new RTCPeerConnection();
-
-/* ICE candidates */
-peerConnection.onicecandidate = event => {
-    if (event.candidate) {
-        socket.send(JSON.stringify({
-            type: "candidate",
-            candidate: event.candidate
-        }));
-    }
-};
+const peers = {};
 
 
 /* ---------------------------
-   Receive video stream
-----------------------------*/
-peerConnection.ontrack = async event => {
-    console.log("Stream received");
-    console.log(event.streams);
-    const container = document.getElementById("sessionContainer");
-
-    let sessionBox = document.querySelector(".live-session");
-
-    if (!sessionBox) {
-        console.log("Creating live session UI");
-
-        sessionBox = document.createElement("div");
-        sessionBox.className = "live-session";
-
-        const title = document.createElement("p");
-        title.innerText = "Live Student";
-
-        const video = document.createElement("video");
-        video.autoplay = true;
-        video.playsInline = true;
-        video.muted = true;
-
-        video.style.width = "400px";
-        video.style.height = "250px";
-        video.style.background = "black";
-        video.controls = true;
-
-
-        sessionBox.appendChild(title);
-        sessionBox.appendChild(video);
-
-        container.appendChild(sessionBox);
-    }
-
-    const video = sessionBox.querySelector("video");
-
-    video.srcObject = event.streams[0];
-
-    try {
-        await video.play();
-    } catch (err) {
-        console.log("Play blocked:", err);
-    }
-};
-
-
-/* ---------------------------
-   Signaling messages
+   Signaling handler
 ----------------------------*/
 socket.onmessage = async e => {
     const data = JSON.parse(e.data);
 
-    if (data.type === "offer") {
-        console.log("Offer received");
+    const sessionId = data.session_id;
+    if (!sessionId) return;
 
-        await peerConnection.setRemoteDescription(
+    /* Create peer if not exists */
+    if (!peers[sessionId]) {
+        console.log("Creating peer:", sessionId);
+
+        const pc = new RTCPeerConnection();
+
+        /* Detect disconnect */
+        pc.onconnectionstatechange = () => {
+            console.log(
+                "Connection state:",
+                pc.connectionState,
+                sessionId
+            );
+
+            if (
+                pc.connectionState === "disconnected" ||
+                pc.connectionState === "failed" ||
+                pc.connectionState === "closed"
+            ) {
+                console.log("Removing session:", sessionId);
+
+                const box = document.getElementById(
+                    `session-${sessionId}`
+                );
+
+                if (box) box.remove();
+
+                pc.close();
+                delete peers[sessionId];
+            }
+        };
+
+        /* ICE candidates */
+        pc.onicecandidate = event => {
+            if (event.candidate) {
+                socket.send(JSON.stringify({
+                    type: "candidate",
+                    candidate: event.candidate,
+                    session_id: sessionId
+                }));
+            }
+        };
+
+        /* Receive video */
+        pc.ontrack = async event => {
+            console.log("Stream received:", sessionId);
+
+            let video =
+                document.getElementById(`video-${sessionId}`);
+
+            /* Create UI if not present */
+            if (!video) {
+                const container =
+                    document.getElementById("sessionContainer");
+
+                const box = document.createElement("div");
+                box.id = `session-${sessionId}`;
+
+                box.innerHTML = `
+                    <p>Student ${sessionId}</p>
+                    <video id="video-${sessionId}"
+                           autoplay playsinline muted
+                           width="300"></video>
+                `;
+
+                container.appendChild(box);
+                video = box.querySelector("video");
+            }
+
+            video.srcObject = event.streams[0];
+
+            try {
+                await video.play();
+            } catch (err) {
+                console.log("Play blocked:", err);
+            }
+        };
+
+        peers[sessionId] = pc;
+    }
+
+    const pc = peers[sessionId];
+
+    /* Offer */
+    if (data.type === "offer") {
+        await pc.setRemoteDescription(
             new RTCSessionDescription(data.offer)
         );
 
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
 
         socket.send(JSON.stringify({
             type: "answer",
-            answer: answer
+            answer,
+            session_id: sessionId
         }));
     }
 
+    /* ICE candidates */
     if (data.type === "candidate") {
-        console.log("Candidate received");
-
-        await peerConnection.addIceCandidate(
-            new RTCIceCandidate(data.candidate)
-        );
+        if (pc.remoteDescription) {
+            await pc.addIceCandidate(
+                new RTCIceCandidate(data.candidate)
+            );
+        }
     }
 };
 

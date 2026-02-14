@@ -36,3 +36,10 @@ class SessionConsumer(AsyncWebsocketConsumer):
 
     async def forward_message(self, event):
         await self.send(text_data=event["message"])
+
+    async def session_ended(self, event):
+        await self.send(text_data=json.dumps({
+            "type": "session_ended",
+            "session_id": event["session_id"]
+        }))
+

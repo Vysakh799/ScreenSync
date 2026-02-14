@@ -15,24 +15,33 @@
 
 <video id="preview" autoplay playsinline muted width="600"></video>
 
-<p>{{admin_id}}</p>
 <script>
 let stream = null;
 let peerConnection = null;
+let pendingCandidates = [];
 
 /* -------------------------
    WebSocket connection
 --------------------------*/
+const protocol =
+    window.location.protocol === "https:" ? "wss://" : "ws://";
+
 const socket = new WebSocket(
-    "ws://" + window.location.host +
+    protocol + window.location.host +
     "/ws/session/{{ admin_id }}/"
 );
+
 socket.onopen = () => console.log("Student socket connected");
 socket.onerror = e => console.log("Socket error:", e);
-let pendingCandidates = [];
 
+
+/* -------------------------
+   Handle signaling
+--------------------------*/
 socket.onmessage = async e => {
     const data = JSON.parse(e.data);
+
+    // if (!peerConnection) return;
 
     if (data.type === "answer") {
         console.log("Answer received");
@@ -41,7 +50,6 @@ socket.onmessage = async e => {
             new RTCSessionDescription(data.answer)
         );
 
-        // Apply queued candidates
         for (const c of pendingCandidates) {
             await peerConnection.addIceCandidate(c);
         }
@@ -50,7 +58,8 @@ socket.onmessage = async e => {
     }
 
     if (data.type === "candidate") {
-        const candidate = new RTCIceCandidate(data.candidate);
+        const candidate =
+            new RTCIceCandidate(data.candidate);
 
         if (peerConnection.remoteDescription) {
             await peerConnection.addIceCandidate(candidate);
@@ -61,18 +70,43 @@ socket.onmessage = async e => {
 };
 
 
+/* -------------------------
+   End session helper
+--------------------------*/
+function endSession() {
+    console.log("Ending session");
+
+    fetch("/end-session/{{ session.id }}/", {
+        method: "POST"
+    });
+
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+
+    if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+    }
+}
+
 
 /* -------------------------
    Screen Share Button
 --------------------------*/
-document.getElementById("shareBtn").onclick = async () => {
+document.getElementById("shareBtn").onclick =
+async () => {
     try {
-        stream = await navigator.mediaDevices.getDisplayMedia({
-            video: true,
-            audio: false
-        });
+        stream =
+            await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: false
+            });
 
-        const video = document.getElementById("preview");
+        const video =
+            document.getElementById("preview");
+
         video.srcObject = stream;
         await video.play();
 
@@ -80,38 +114,41 @@ document.getElementById("shareBtn").onclick = async () => {
 
         peerConnection = new RTCPeerConnection();
 
-        /* ICE candidates */
+        /* Send ICE candidates */
         peerConnection.onicecandidate = event => {
             if (event.candidate) {
                 socket.send(JSON.stringify({
                     type: "candidate",
-                    candidate: event.candidate
+                    candidate: event.candidate,
+                    session_id: "{{ session.id }}"
                 }));
             }
         };
 
-        /* Send tracks */
+        /* Add tracks */
         stream.getTracks().forEach(track => {
             peerConnection.addTrack(track, stream);
         });
 
-        /* Stop sharing */
-        stream.getVideoTracks()[0].onended = () => {
-            fetch("/end-session/{{ session.id }}/");
-        };
+        /* Detect stop sharing */
+        stream.getVideoTracks()[0].onended =
+            endSession;
 
         console.log("Creating offer");
 
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
+        const offer =
+            await peerConnection.createOffer();
+
+        await peerConnection
+            .setLocalDescription(offer);
 
         console.log("Sending offer");
 
         socket.send(JSON.stringify({
             type: "offer",
-            offer: offer
+            offer: offer,
+            session_id: "{{ session.id }}"
         }));
-console.log(event.streams);
 
     } catch (err) {
         console.log("User cancelled sharing");
@@ -120,11 +157,12 @@ console.log(event.streams);
 
 
 /* -------------------------
-   Tab Close Handling
+   Tab close cleanup
 --------------------------*/
-window.addEventListener("beforeunload", function () {
-    navigator.sendBeacon("/end-session/{{ session.id }}/");
-});
+window.addEventListener(
+    "beforeunload",
+    endSession
+);
 </script>
 
 </body>

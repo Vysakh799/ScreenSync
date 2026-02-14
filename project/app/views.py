@@ -1,6 +1,9 @@
 from django.shortcuts import render,redirect
 from django.contrib.auth import get_user_model,login,authenticate,logout
 from django.http import HttpResponse
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.http import HttpResponse
 
 from .models import *
 # Create your views here.
@@ -74,11 +77,20 @@ def session(request):
     return redirect(join_session)
 
     
+def end_session(request, session_id):
+    session = Session.objects.get(id=session_id)
+    session.is_active = False
+    session.save()
 
-def end_session(request,session_id):
-    try:
-        session = Session.objects.filter(id = session_id).update(is_active = False)
-        return redirect(join_session)
-    except Session.DoesNotExist:
-        return redirect(join_session)
+    channel_layer = get_channel_layer()
+
+    async_to_sync(channel_layer.group_send)(
+        f"admin_{session.admin.id}",
+        {
+            "type": "session_ended",
+            "session_id": session_id,
+        },
+    )
+
+    return HttpResponse("ok")
     
