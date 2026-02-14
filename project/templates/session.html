@@ -89,6 +89,16 @@ function endSession() {
         stream.getTracks().forEach(t => t.stop());
         stream = null;
     }
+
+    // Clear video preview
+    const video = document.getElementById("preview");
+    video.srcObject = null;
+
+    // Optional: show message
+    alert("Screen sharing stopped");
+
+    // Optional: redirect back to join page
+    // window.location.href = "/";
 }
 
 
