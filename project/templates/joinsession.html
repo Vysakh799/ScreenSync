@@ -1,16 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Join Session | ScreenSync</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                    },
+                },
+            },
+        };
+    </script>
 </head>
-<body>
-    <form action="" method="post">
-        {% csrf_token %}
-        <input type="text" name="name" placeholder="Name" id="">
-        <input type="text" name="code" placeholder="Enter the Code" id="">
-        <input type="submit" value="Join">
-    </form>
+
+<body class="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+
+    <!-- Background Elements -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-[20%] left-[20%] w-[40%] h-[40%] rounded-full bg-blue-600/20 blur-3xl"></div>
+        <div class="absolute bottom-[20%] right-[20%] w-[30%] h-[30%] rounded-full bg-purple-600/20 blur-3xl"></div>
+    </div>
+
+    <div
+        class="w-full max-w-md bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl p-8 relative z-10">
+        <div class="text-center mb-8">
+            <div
+                class="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-purple-500/30">
+                <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                    </path>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-bold tracking-tight">Join Screen Casting</h2>
+            <p class="text-gray-400 text-sm mt-2">Enter your name and the session code provided by the admin</p>
+        </div>
+
+        <form action="" method="post" class="space-y-5">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Your Name</label>
+                <input type="text" name="name" placeholder="Enter your name" required
+                    class="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-1">Session Code</label>
+                <input type="text" name="code" placeholder="e.g. A1B2C3" required
+                    class="w-full px-4 py-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500 transition-all font-mono tracking-wider">
+            </div>
+
+            <button type="submit"
+                class="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-semibold rounded-lg shadow-lg shadow-purple-500/25 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transform hover:translate-y-[-1px] transition-all">
+                Join Session
+            </button>
+        </form>
+
+        <div class="mt-6 text-center border-t border-gray-700/50 pt-4">
+            <p class="text-xs text-gray-500">
+                By joining, you agree to share your screen with the session administrator.
+            </p>
+        </div>
+    </div>
+
 </body>
+
 </html>

@@ -25,6 +25,11 @@ def admin_login(request):
     return render(request,'login.html')
 
 
+def admin_logout(request):
+    logout(request)
+    return redirect(admin_login)
+
+
 def admin_register(request):
     if request.method == 'POST':
         username = request.POST['username']
@@ -46,7 +51,7 @@ def admin_dashboard(request):
         return render(request,'dashboard.html',{'code':request.user.admin_code,'sessions':sessions})
     
     else:
-        return redirect(admin_register)
+        return redirect(admin_login)
     
 
 

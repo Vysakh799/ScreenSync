@@ -1,179 +1,258 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Screen Share Session</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sharing Screen | ScreenSync</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    }
+                },
+            },
+        };
+    </script>
 </head>
 
-<body>
+<body
+    class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden">
 
-<h2>Student Screen Sharing</h2>
+    <!-- Background Elements -->
+    <div class="fixed inset-0 pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[100px]"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-600/10 blur-[100px]">
+        </div>
+    </div>
 
-<button id="shareBtn">Share Screen</button>
-<br><br>
+    <!-- Main Content -->
+    <div class="w-full max-w-2xl text-center relative z-10">
 
-<video id="preview" autoplay playsinline muted width="600"></video>
+        <!-- Status Indicator (Default hidden, shown when active) -->
+        <div id="activeStatus"
+            class="hidden inline-flex items-center px-4 py-2 bg-gray-800/50 backdrop-blur-md rounded-full border border-green-500/30 mb-8 shadow-lg shadow-green-900/20">
+            <div class="relative flex h-3 w-3 mr-3">
+                <span
+                    class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+            </div>
+            <span class="text-green-400 font-medium text-sm tracking-wide uppercase">Live Session Active</span>
+        </div>
 
-<script>
-let stream = null;
-let peerConnection = null;
-let pendingCandidates = [];
+        <h1
+            class="text-4xl md:text-5xl font-bold tracking-tight mb-4 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+            Student Screen Sharing
+        </h1>
 
-/* -------------------------
-   WebSocket connection
---------------------------*/
-const protocol =
-    window.location.protocol === "https:" ? "wss://" : "ws://";
+        <p class="text-lg text-gray-400 mb-8 max-w-lg mx-auto leading-relaxed">
+            Click the button below to start sharing your screen with the administrator.
+        </p>
 
-const socket = new WebSocket(
-    protocol + window.location.host +
-    "/ws/session/{{ admin_id }}/"
-);
+        <!-- Start Button -->
+        <button id="shareBtn"
+            class="mb-8 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 transform hover:scale-105 transition-all duration-300 flex items-center justify-center mx-auto text-lg">
+            <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                </path>
+            </svg>
+            Start Sharing Screen
+        </button>
 
-socket.onopen = () => console.log("Student socket connected");
-socket.onerror = e => console.log("Socket error:", e);
+        <!-- Session Info Card -->
+        <div
+            class="bg-gray-800/40 backdrop-blur-xl border border-gray-700/50 rounded-2xl p-6 max-w-sm mx-auto shadow-2xl transform hover:scale-[1.02] transition-transform duration-300">
+            <div class="flex items-center justify-between mb-4 pb-4 border-b border-gray-700/50">
+                <span class="text-gray-400 text-sm">Session ID</span>
+                <span class="font-mono text-white font-medium bg-gray-700/50 px-2 py-1 rounded">#{{ session.id }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <span class="text-gray-400 text-sm">Connected as</span>
+                <span class="text-white font-medium">{{ session.student_name }}</span>
+            </div>
+        </div>
 
+    </div>
 
-/* -------------------------
-   Handle signaling
---------------------------*/
-socket.onmessage = async e => {
-    const data = JSON.parse(e.data);
+    <!-- Hidden Video Preview (kept for logic compatibility but hidden or styled) -->
+    <div class="mt-8 relative z-10 max-w-4xl mx-auto hidden" id="previewContainer">
+        <video id="preview" autoplay playsinline muted
+            class="w-full rounded-xl shadow-2xl border border-gray-700/50"></video>
+        <p class="mt-2 text-sm text-gray-500 text-center">Local Preview</p>
+    </div>
 
-    // if (!peerConnection) return;
+    <!-- Original JavaScript Logic restored -->
+    <script>
+        let stream = null;
+        let peerConnection = null;
+        let pendingCandidates = [];
 
-    if (data.type === "answer") {
-        console.log("Answer received");
+        /* -------------------------
+           WebSocket connection
+        --------------------------*/
+        const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
 
-        await peerConnection.setRemoteDescription(
-            new RTCSessionDescription(data.answer)
+        const socket = new WebSocket(
+            protocol + window.location.host +
+            "/ws/session/{{ admin_id }}/"
         );
 
-        for (const c of pendingCandidates) {
-            await peerConnection.addIceCandidate(c);
-        }
-
-        pendingCandidates = [];
-    }
-
-    if (data.type === "candidate") {
-        const candidate =
-            new RTCIceCandidate(data.candidate);
-
-        if (peerConnection.remoteDescription) {
-            await peerConnection.addIceCandidate(candidate);
-        } else {
-            pendingCandidates.push(candidate);
-        }
-    }
-};
+        socket.onopen = () => console.log("Student socket connected");
+        socket.onerror = e => console.log("Socket error:", e);
 
 
-/* -------------------------
-   End session helper
---------------------------*/
-function endSession() {
-    console.log("Ending session");
+        /* -------------------------
+           Handle signaling
+        --------------------------*/
+        socket.onmessage = async e => {
+            const data = JSON.parse(e.data);
 
-    fetch("/end-session/{{ session.id }}/", {
-        method: "POST"
-    });
+            // if (!peerConnection) return;
 
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
+            if (data.type === "answer") {
+                console.log("Answer received");
 
-    if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-    }
+                await peerConnection.setRemoteDescription(
+                    new RTCSessionDescription(data.answer)
+                );
 
-    // Clear video preview
-    const video = document.getElementById("preview");
-    video.srcObject = null;
+                for (const c of pendingCandidates) {
+                    await peerConnection.addIceCandidate(c);
+                }
 
-    // Optional: show message
-    alert("Screen sharing stopped");
+                pendingCandidates = [];
+            }
 
-    // Optional: redirect back to join page
-    // window.location.href = "/";
-}
+            if (data.type === "candidate") {
+                const candidate =
+                    new RTCIceCandidate(data.candidate);
 
-
-/* -------------------------
-   Screen Share Button
---------------------------*/
-document.getElementById("shareBtn").onclick =
-async () => {
-    try {
-        stream =
-            await navigator.mediaDevices.getDisplayMedia({
-                video: true,
-                audio: false
-            });
-
-        const video =
-            document.getElementById("preview");
-
-        video.srcObject = stream;
-        await video.play();
-
-        console.log("Screen sharing started");
-
-        peerConnection = new RTCPeerConnection();
-
-        /* Send ICE candidates */
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                socket.send(JSON.stringify({
-                    type: "candidate",
-                    candidate: event.candidate,
-                    session_id: "{{ session.id }}"
-                }));
+                if (peerConnection.remoteDescription) {
+                    await peerConnection.addIceCandidate(candidate);
+                } else {
+                    pendingCandidates.push(candidate);
+                }
             }
         };
 
-        /* Add tracks */
-        stream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, stream);
-        });
 
-        /* Detect stop sharing */
-        stream.getVideoTracks()[0].onended =
-            endSession;
+        /* -------------------------
+           End session helper
+        --------------------------*/
+        function endSession() {
+            console.log("Ending session");
 
-        console.log("Creating offer");
+            fetch("/end-session/{{ session.id }}/", {
+                method: "POST"
+            });
 
-        const offer =
-            await peerConnection.createOffer();
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
 
-        await peerConnection
-            .setLocalDescription(offer);
+            if (stream) {
+                stream.getTracks().forEach(t => t.stop());
+                stream = null;
+            }
 
-        console.log("Sending offer");
+            // Clear video preview
+            const video = document.getElementById("preview");
+            video.srcObject = null;
 
-        socket.send(JSON.stringify({
-            type: "offer",
-            offer: offer,
-            session_id: "{{ session.id }}"
-        }));
+            // Reset UI
+            document.getElementById("activeStatus").classList.add("hidden");
+            document.getElementById("previewContainer").classList.add("hidden");
+            document.getElementById("shareBtn").classList.remove("hidden");
+            document.querySelector("h1").textContent = "Student Screen Sharing";
 
-    } catch (err) {
-        console.log("User cancelled sharing");
-    }
-};
+            // Optional: show message
+            alert("Screen sharing stopped");
+        }
 
 
-/* -------------------------
-   Tab close cleanup
---------------------------*/
-window.addEventListener(
-    "beforeunload",
-    endSession
-);
-</script>
+        /* -------------------------
+           Screen Share Button
+        --------------------------*/
+        document.getElementById("shareBtn").onclick = async () => {
+            try {
+                stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: false
+                });
 
+                const video = document.getElementById("preview");
+
+                // Show preview container
+                document.getElementById("previewContainer").classList.remove("hidden");
+
+                video.srcObject = stream;
+                await video.play();
+
+                // Update UI
+                document.getElementById("activeStatus").classList.remove("hidden");
+                document.getElementById("shareBtn").classList.add("hidden");
+                document.querySelector("h1").textContent = "You are sharing your screen";
+
+                console.log("Screen sharing started");
+
+                peerConnection = new RTCPeerConnection();
+
+                /* Send ICE candidates */
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) {
+                        socket.send(JSON.stringify({
+                            type: "candidate",
+                            candidate: event.candidate,
+                            session_id: "{{ session.id }}"
+                        }));
+                    }
+                };
+
+                /* Add tracks */
+                stream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, stream);
+                });
+
+                /* Detect stop sharing */
+                stream.getVideoTracks()[0].onended = endSession;
+
+                console.log("Creating offer");
+
+                const offer = await peerConnection.createOffer();
+
+                await peerConnection.setLocalDescription(offer);
+
+                console.log("Sending offer");
+
+                socket.send(JSON.stringify({
+                    type: "offer",
+                    offer: offer,
+                    session_id: "{{ session.id }}"
+                }));
+
+            } catch (err) {
+                console.log("User cancelled sharing", err);
+            }
+        };
+
+
+        /* -------------------------
+           Tab close cleanup
+        --------------------------*/
+        window.addEventListener(
+            "beforeunload",
+            endSession
+        );
+    </script>
 </body>
+
 </html>

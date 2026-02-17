@@ -25,6 +25,7 @@ urlpatterns = [
     path('admin-dashboard/',views.admin_dashboard),
     path('admin-register/',views.admin_register),
     path('admin-login/',views.admin_login),
+    path('admin-logout/',views.admin_logout),
     
     #  USer
     path('',views.join_session),

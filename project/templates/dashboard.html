@@ -1,190 +1,419 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    {% load static %}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title>Admin Login | ScreenSync</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                    },
+                },
+            },
+        };
+    </script>
 </head>
 
-<body>
+<body class="bg-gray-900 text-white min-h-screen">
 
-<h1>Welcome to dashboard</h1>
-<h2>Code: {{ code }}</h2>
+    <!-- Header -->
+    <header class="bg-gray-800/50 backdrop-blur-md border-b border-gray-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight">ScreenSync <span class="text-blue-500">Admin</span></h1>
+            </div>
 
-<div id="sessionContainer">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center px-4 py-2 bg-gray-800 rounded-full border border-gray-700">
+                    <span class="text-gray-400 text-sm mr-2">Session Code:</span>
+                    <span class="font-mono font-bold text-blue-400 tracking-wider">{{ code }}</span>
+                </div>
+                <a href="/admin-logout/"
+                    class="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-800"
+                    title="Logout">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
+                    </svg>
+                </a>
+                <div class="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600"></div>
+            </div>
+        </div>
+    </header>
 
-{% for i in sessions %}
-<div id="session-{{ i.id }}">
-    <p>{{ i.student_name }}</p>
-    <video id="video-{{ i.id }}"
-           autoplay playsinline muted width="300"></video>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Dashboard Header -->
+        <div class="mb-8 flex items-center justify-between">
+            <div>
+                <h2 class="text-2xl font-bold">Active Sessions</h2>
+                <p class="text-gray-400 mt-1">Monitoring live student screens</p>
+            </div>
+            <div class="flex space-x-3">
+                <button
+                    class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors border border-gray-700">
+                    Refresh List
+                </button>
+            </div>
+        </div>
 
-    <button onclick="endSession({{ i.id }})">
-        End Session
-    </button>
-</div>
-{% endfor %}
+        <!-- Grid Container -->
+        <div id="sessionContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {% for i in sessions %}
+            <div id="session-{{ i.id }}"
+                class="group relative bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700/50 hover:border-blue-500/50 transition-all duration-300">
+                <!-- Header -->
+                <div
+                    class="absolute top-0 left-0 right-0 p-3 z-10 flex justify-between items-start pointer-events-none">
+                    <span
+                        class="px-2 py-1 bg-black/50 backdrop-blur-sm rounded text-xs font-medium text-white ring-1 ring-white/10 shadow-sm pointer-events-auto">
+                        {{ i.student_name }}
+                    </span>
 
-</div>
+                    <div class="flex items-center space-x-2 pointer-events-auto relative">
+                        <div
+                            class="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]">
+                        </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
+                        <!-- Menu Button -->
+                        <button onclick="toggleMenu({{ i.id }})"
+                            class="p-1 hover:bg-black/40 rounded-full transition-colors focus:outline-none text-white/80 hover:text-white backdrop-blur-sm">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z">
+                                </path>
+                            </svg>
+                        </button>
 
-/* ---------------------------
-   End session manually
-----------------------------*/
-window.endSession = function(id) {
-    fetch(`/end-session/${id}/`, {
-        method: "POST",
-        headers: {
-            "X-CSRFToken": "{{ csrf_token }}"
-        }
-    });
-};
+                        <!-- Dropdown Menu -->
+                        <div id="menu-{{ i.id }}"
+                            class="hidden absolute right-0 top-8 w-40 bg-gray-800 border border-gray-700/50 rounded-lg shadow-xl py-1 z-20 backdrop-blur-xl">
+                            <button onclick="toggleFullscreen({{ i.id }})"
+                                class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center transition-colors">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4">
+                                    </path>
+                                </svg>
+                                Fullscreen
+                            </button>
+                            <button onclick="endSession({{ i.id }})"
+                                class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 flex items-center transition-colors">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                                End Session
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Video -->
+                <div class="aspect-video bg-gray-900 relative group">
+                    <video id="video-{{ i.id }}" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                    <!-- Hover gradient for better text visibility -->
+                    <div
+                        class="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                    </div>
+                </div>
+
+                <!-- Footer Info -->
+                <div class="px-4 py-3 bg-gray-800 border-t border-gray-700/50 flex justify-between items-center">
+                    <span class="text-xs text-gray-500 font-mono">ID: #{{ i.id }}</span>
+                    <span class="text-xs text-gray-400 flex items-center">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        Live
+                    </span>
+                </div>
+            </div>
+            {% empty %}
+            <!-- Empty State -->
+            <div
+                class="col-span-full flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-gray-700 rounded-xl bg-gray-800/30">
+                <div class="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                    <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-300">No active sessions</h3>
+                <p class="text-gray-500 mt-2 max-w-sm">When students join using your code <span
+                        class="font-mono text-blue-400 bg-gray-800 px-1 rounded">{{ code }}</span>, their screens will
+                    appear here automatically.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+
+            /* ---------------------------
+               End session manually
+            ----------------------------*/
+            window.endSession = function (id) {
+                if (!confirm("Are you sure you want to end this session?")) return;
+
+                fetch(`/end-session/${id}/`, {
+                    method: "POST",
+                    headers: {
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    }
+                });
+
+                // Optimistic UI update
+                removeSessionUI(id);
+            };
+
+            /* ---------------------------
+               UI Actions
+            ----------------------------*/
+            window.toggleMenu = function (id) {
+                const menu = document.getElementById(`menu-${id}`);
+                // Close other menus first
+                document.querySelectorAll('[id^="menu-"]').forEach(el => {
+                    if (el.id !== `menu-${id}`) el.classList.add('hidden');
+                });
+                menu.classList.toggle('hidden');
+
+                // Click outside to close
+                if (!menu.classList.contains('hidden')) {
+                    setTimeout(() => {
+                        const closeHandler = (e) => {
+                            if (!menu.contains(e.target) && !e.target.closest(`button[onclick="toggleMenu(${id})"]`)) {
+                                menu.classList.add('hidden');
+                                document.removeEventListener('click', closeHandler);
+                            }
+                        };
+                        document.addEventListener('click', closeHandler);
+                    }, 0);
+                }
+            };
+
+            window.toggleFullscreen = function (id) {
+                const video = document.getElementById(`video-${id}`);
+                if (video) {
+                    if (video.requestFullscreen) {
+                        video.requestFullscreen();
+                    } else if (video.webkitRequestFullscreen) { /* Safari */
+                        video.webkitRequestFullscreen();
+                    } else if (video.msRequestFullscreen) { /* IE11 */
+                        video.msRequestFullscreen();
+                    }
+                    toggleMenu(id); // Close menu
+                }
+            };
 
 
-/* ---------------------------
-   WebSocket connection
-----------------------------*/
-const protocol =
-    window.location.protocol === "https:" ? "wss://" : "ws://";
-
-const socket = new WebSocket(
-    protocol + window.location.host +
-    "/ws/session/{{ request.user.id }}/"
-);
-
-socket.onopen = () => console.log("WebSocket Connected");
-socket.onerror = e => console.log("Socket error", e);
-
-
-/* ---------------------------
-   Peer map
-----------------------------*/
-const peers = {};
-
-
-/* ---------------------------
-   Signaling handler
-----------------------------*/
-socket.onmessage = async e => {
-    const data = JSON.parse(e.data);
-
-    const sessionId = data.session_id;
-    if (!sessionId) return;
-
-    /* Create peer if not exists */
-    if (!peers[sessionId]) {
-        console.log("Creating peer:", sessionId);
-
-        const pc = new RTCPeerConnection();
-
-        /* Detect disconnect */
-        pc.onconnectionstatechange = () => {
-            console.log(
-                "Connection state:",
-                pc.connectionState,
-                sessionId
+            /* ---------------------------
+               WebSocket connection
+            ----------------------------*/
+            const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+            const socket = new WebSocket(
+                protocol + window.location.host +
+                "/ws/session/{{ request.user.id }}/"
             );
 
-            if (
-                pc.connectionState === "disconnected" ||
-                pc.connectionState === "failed" ||
-                pc.connectionState === "closed"
-            ) {
-                console.log("Removing session:", sessionId);
+            socket.onopen = () => console.log("WebSocket Connected");
+            socket.onerror = e => console.log("Socket error", e);
 
-                const box = document.getElementById(
-                    `session-${sessionId}`
-                );
 
-                if (box) box.remove();
+            /* ---------------------------
+               Peer map
+            ----------------------------*/
+            const peers = {};
 
-                pc.close();
-                delete peers[sessionId];
-            }
-        };
 
-        /* ICE candidates */
-        pc.onicecandidate = event => {
-            if (event.candidate) {
-                socket.send(JSON.stringify({
-                    type: "candidate",
-                    candidate: event.candidate,
-                    session_id: sessionId
-                }));
-            }
-        };
+            /* ---------------------------
+               Signaling handler
+            ----------------------------*/
+            socket.onmessage = async e => {
+                const data = JSON.parse(e.data);
+                const sessionId = data.session_id;
 
-        /* Receive video */
-        pc.ontrack = async event => {
-            console.log("Stream received:", sessionId);
+                if (!sessionId) return;
 
-            let video =
-                document.getElementById(`video-${sessionId}`);
+                /* Create peer if not exists */
+                if (!peers[sessionId]) {
+                    console.log("Creating peer:", sessionId);
+                    const pc = new RTCPeerConnection();
 
-            /* Create UI if not present */
-            if (!video) {
-                const container =
-                    document.getElementById("sessionContainer");
+                    /* Detect disconnect */
+                    pc.onconnectionstatechange = () => {
+                        console.log("Connection state:", pc.connectionState, sessionId);
+                        if (["disconnected", "failed", "closed"].includes(pc.connectionState)) {
+                            removeSessionUI(sessionId);
+                            pc.close();
+                            delete peers[sessionId];
+                        }
+                    };
+
+                    /* ICE candidates */
+                    pc.onicecandidate = event => {
+                        if (event.candidate) {
+                            socket.send(JSON.stringify({
+                                type: "candidate",
+                                candidate: event.candidate,
+                                session_id: sessionId
+                            }));
+                        }
+                    };
+
+                    /* Receive video */
+                    pc.ontrack = async event => {
+                        console.log("Stream received:", sessionId);
+                        let video = document.getElementById(`video-${sessionId}`);
+
+                        /* Create UI if not present */
+                        if (!video) {
+                            createSessionUI(sessionId, event.streams[0]);
+                        } else {
+                            video.srcObject = event.streams[0];
+                            try { await video.play(); } catch (err) { console.log("Play blocked:", err); }
+                        }
+                    };
+
+                    peers[sessionId] = pc;
+                }
+
+                const pc = peers[sessionId];
+
+                /* Offer */
+                if (data.type === "offer") {
+                    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+
+                    socket.send(JSON.stringify({
+                        type: "answer",
+                        answer,
+                        session_id: sessionId
+                    }));
+                }
+
+                /* ICE candidates */
+                if (data.type === "candidate") {
+                    if (pc.remoteDescription) {
+                        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    }
+                }
+            };
+
+            /* ---------------------------
+               UI Helpers
+            ----------------------------*/
+            function createSessionUI(id, stream) {
+                const container = document.getElementById("sessionContainer");
+
+                // Remove empty state if present
+                const emptyState = container.querySelector('.col-span-full');
+                if (emptyState) emptyState.remove();
 
                 const box = document.createElement("div");
-                box.id = `session-${sessionId}`;
+                box.id = `session-${id}`;
+                box.className = "group relative bg-gray-800 rounded-xl overflow-hidden shadow-lg border border-gray-700/50 hover:border-blue-500/50 transition-all duration-300 opacity-0 transform scale-95";
 
                 box.innerHTML = `
-                    <p>Student ${sessionId}</p>
-                    <video id="video-${sessionId}"
-                           autoplay playsinline muted
-                           width="300"></video>
-                `;
+            <div class="absolute top-0 left-0 right-0 p-3 z-10 flex justify-between items-start pointer-events-none">
+                <span class="px-2 py-1 bg-black/50 backdrop-blur-sm rounded text-xs font-medium text-white ring-1 ring-white/10 shadow-sm pointer-events-auto">
+                    Student #${id}
+                </span>
+                
+                <div class="flex items-center space-x-2 pointer-events-auto relative">
+                    <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                    
+                    <button onclick="toggleMenu(${id})" class="p-1 hover:bg-black/40 rounded-full transition-colors focus:outline-none text-white/80 hover:text-white backdrop-blur-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path>
+                        </svg>
+                    </button>
+
+                    <div id="menu-${id}" class="hidden absolute right-0 top-8 w-40 bg-gray-800 border border-gray-700/50 rounded-lg shadow-xl py-1 z-20 backdrop-blur-xl">
+                        <button onclick="toggleFullscreen(${id})" class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white flex items-center transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>
+                            </svg>
+                            Fullscreen
+                        </button>
+                        <button onclick="endSession(${id})" class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 flex items-center transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            End Session
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="aspect-video bg-gray-900 relative group">
+                <video id="video-${id}" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                <div class="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+            </div>
+
+            <div class="px-4 py-3 bg-gray-800 border-t border-gray-700/50 flex justify-between items-center">
+                <span class="text-xs text-gray-500 font-mono">ID: #${id}</span>
+                <span class="text-xs text-gray-400 flex items-center">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Live
+                </span>
+            </div>
+        `;
 
                 container.appendChild(box);
-                video = box.querySelector("video");
+
+                const video = box.querySelector("video");
+                video.srcObject = stream;
+                video.play().catch(e => console.log("Autoplay failed", e));
+
+                // Animation
+                requestAnimationFrame(() => {
+                    box.classList.remove('opacity-0', 'scale-95');
+                });
             }
 
-            video.srcObject = event.streams[0];
+            function removeSessionUI(id) {
+                const box = document.getElementById(`session-${id}`);
+                if (box) {
+                    box.classList.add('opacity-0', 'scale-95');
+                    setTimeout(() => {
+                        box.remove();
 
-            try {
-                await video.play();
-            } catch (err) {
-                console.log("Play blocked:", err);
+                        // Show empty state if no sessions left
+                        const container = document.getElementById("sessionContainer");
+                        if (container.children.length === 0) {
+                            // Ideally we would re-insert the empty state HTML here
+                            location.reload(); // Simple fallback to restore empty state
+                        }
+                    }, 300);
+                }
             }
-        };
 
-        peers[sessionId] = pc;
-    }
-
-    const pc = peers[sessionId];
-
-    /* Offer */
-    if (data.type === "offer") {
-        await pc.setRemoteDescription(
-            new RTCSessionDescription(data.offer)
-        );
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-
-        socket.send(JSON.stringify({
-            type: "answer",
-            answer,
-            session_id: sessionId
-        }));
-    }
-
-    /* ICE candidates */
-    if (data.type === "candidate") {
-        if (pc.remoteDescription) {
-            await pc.addIceCandidate(
-                new RTCIceCandidate(data.candidate)
-            );
-        }
-    }
-};
-
-});
-</script>
+        });
+    </script>
 
 </body>
+
 </html>
